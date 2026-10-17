@@ -23,7 +23,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # llama-cpp-python: take a prebuilt CPU wheel so no C++ compiler is needed
           pip install llama-cpp-python --prefer-binary --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
           pip install pywebview faster-whisper pyinstaller
 
