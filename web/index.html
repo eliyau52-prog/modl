@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מתמלל מקומי</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--text:#1d2330;--muted:#6b7280;--primary:#3b5bdb;--border:#e2e5ea;--ok:#2f9e44;--err:#e03131}
+  @media(prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--text:#e8eaf0;--muted:#9aa3b2;--primary:#748ffc;--border:#2c3340}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,"Segoe UI",Arial,sans-serif;line-height:1.5}
+  main{max-width:880px;margin:0 auto;padding:24px 16px 60px}
+  h1{font-size:1.5rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+  details summary{cursor:pointer;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+  .full{grid-column:1/-1}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row input{flex:1;min-width:0}
+  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer}
+  button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  #drop{border:2px dashed var(--border);border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;transition:.15s}
+  #drop.over{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,transparent)}
+  #drop strong{display:block;font-size:1.05rem}
+  .item{border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:12px}
+  .item h3{margin:0 0 6px;font-size:1rem;word-break:break-all}
+  .status{font-size:.85rem;color:var(--muted)}
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+  .bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:8px 0}
+  .bar i{display:block;height:100%;width:0;background:var(--primary);transition:width .2s}
+  textarea{min-height:140px;resize:vertical;margin-top:8px}
+  .tabs button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  #global{position:fixed;top:0;left:0;right:0;background:var(--primary);color:#fff;text-align:center;padding:6px;font-size:.9rem;display:none;z-index:9}
+</style>
+</head>
+<body>
+<div id="global"></div>
+<main>
+  <h1>🎙️ מתמלל מקומי</h1>
+  <p class="sub">העלאת הקלטות ← תמלול ← ניקוי/סיכום עם Qwen 2.5 Instruct. הכול רץ במחשב שלך, בלי שרת ובלי כתובות.</p>
+
+  <details class="card" id="settings" open>
+    <summary>⚙️ הגדרות מודלים</summary>
+    <div class="grid">
+      <div class="full">
+        <label>מודל תמלול (Whisper): שם כמו large-v3 / medium / small, או תיקיית מודל מקומית</label>
+        <div class="row">
+          <input id="whisper_model" dir="ltr">
+          <button id="browseWhisper">בחר תיקייה…</button>
+        </div>
+      </div>
+      <div class="full">
+        <label>קובץ Qwen 2.5 Instruct (‎.gguf)</label>
+        <div class="row">
+          <input id="qwen_gguf" dir="ltr" placeholder="C:\models\qwen2.5-7b-instruct-q4_k_m.gguf">
+          <button id="browseGguf">בחר קובץ…</button>
+        </div>
+      </div>
+      <div>
+        <label>שפת ההקלטה</label>
+        <select id="language">
+          <option value="he">עברית</option><option value="en">אנגלית</option>
+          <option value="ar">ערבית</option><option value="ru">רוסית</option>
+          <option value="">זיהוי אוטומטי</option>
+        </select>
+      </div>
+      <div>
+        <label>שכבות על כרטיס מסך (0 = מעבד בלבד, -1 = הכול)</label>
+        <input id="gpu_layers" type="number" value="0" dir="ltr">
+      </div>
+      <div>
+        <label>מה לעשות עם התמלול</label>
+        <select id="mode">
+          <option value="none">כלום – תמלול גולמי בלבד</option>
+          <option value="clean">ניקוי: פיסוק, תיקון שגיאות, פסקאות</option>
+          <option value="summary">תמלול + סיכום ונקודות עיקריות</option>
+          <option value="custom">הנחיה מותאמת אישית</option>
+        </select>
+      </div>
+      <div id="customWrap" style="display:none">
+        <label>הנחיה מותאמת</label>
+        <input id="custom_prompt" placeholder="למשל: הפק פרוטוקול ישיבה עם משימות">
+      </div>
+    </div>
+  </details>
+
+  <div class="card">
+    <div id="drop">
+      <strong>גרור לכאן קבצי שמע/וידאו או לחץ לבחירה</strong>
+      <span class="status">mp3, wav, m4a, ogg, flac, mp4 ועוד · אפשר כמה קבצים יחד</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="startBtn" disabled>התחל תמלול</button>
+      <button id="clearBtn">נקה הכול</button>
+      <span class="status" id="queueInfo"></span>
+    </div>
+  </div>
+
+  <div id="results"></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const cfgFields = ['whisper_model','qwen_gguf','gpu_layers','language','mode','custom_prompt'];
+const items = new Map();   // path -> {el, done}
+const api = () => window.pywebview.api;
+const dropZone = $('drop');
+
+function cfgFromUI(){
+  const c = {};
+  cfgFields.forEach(f => c[f] = f==='gpu_layers' ? parseInt($(f).value||'0',10) : $(f).value);
+  return c;
+}
+async function saveCfg(){
+  await api().set_config(cfgFromUI());
+  $('customWrap').style.display = $('mode').value==='custom' ? '' : 'none';
+}
+
+window.addEventListener('pywebviewready', async () => {
+  const c = await api().get_config();
+  cfgFields.forEach(f => { if(c[f] !== undefined) $(f).value = c[f]; });
+  $('customWrap').style.display = $('mode').value==='custom' ? '' : 'none';
+  cfgFields.forEach(f => $(f).addEventListener('change', saveCfg));
+});
+
+$('browseWhisper').onclick = async () => { const p = await api().browse_folder(); if(p){ $('whisper_model').value=p; saveCfg(); } };
+$('browseGguf').onclick   = async () => { const p = await api().browse_gguf();   if(p){ $('qwen_gguf').value=p; saveCfg(); } };
+
+// ---- callbacks from Python
+window.onStatusGlobal = t => { const g=$('global'); g.textContent=t; g.style.display=t?'block':'none'; };
+window.onProgress = (path, pct) => { const it=items.get(path); if(it){ it.el.querySelector('.bar i').style.width=pct+'%'; } };
+window.onStage = (path, text) => setStatus(path, text);
+window.addPaths = paths => {
+  paths.forEach(p => {
+    if(items.has(p)) return;
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `<h3></h3><div class="status">ממתין בתור</div><div class="bar"><i></i></div><div class="out"></div>`;
+    el.querySelector('h3').textContent = p.split(/[\\/]/).pop();
+    el.title = p;
+    $('results').prepend(el);
+    items.set(p, {el, done:false});
+  });
+  updateQueue();
+};
+
+dropZone.onclick = async () => { const p = await api().pick_audio(); if(p.length) window.addPaths(p); };
+document.addEventListener('dragenter', () => dropZone.classList.add('over'));
+document.addEventListener('dragleave', e => { if(!e.relatedTarget) dropZone.classList.remove('over'); });
+document.addEventListener('drop', () => dropZone.classList.remove('over'));
+
+function updateQueue(){
+  const n = [...items.values()].filter(i=>!i.done).length;
+  $('startBtn').disabled = n===0;
+  $('queueInfo').textContent = n ? `${n} קבצים בתור` : '';
+}
+$('clearBtn').onclick = () => { items.clear(); $('results').innerHTML=''; updateQueue(); };
+
+function setStatus(path, text, cls=''){
+  const it = items.get(path); if(!it) return;
+  const s = it.el.querySelector('.status'); s.textContent = text; s.className = 'status '+cls;
+}
+
+$('startBtn').onclick = async () => {
+  $('startBtn').disabled = true;
+  await saveCfg();
+  const mode = $('mode').value;
+  for(const [path, it] of items){
+    if(it.done) continue;
+    setStatus(path, 'מתמלל… (קבצים ארוכים לוקחים זמן)');
+    const t = await api().transcribe(path, $('language').value);
+    it.done = true;
+    if(!t.ok){ setStatus(path, 'שגיאה בתמלול: '+t.error, 'err'); continue; }
+    it.el.querySelector('.bar i').style.width = '100%';
+    let refined = null, warn = '';
+    if(mode !== 'none'){
+      const r = await api().refine(t.text, mode, $('custom_prompt').value, path);
+      if(r.ok) refined = r.text; else warn = r.error;
+    }
+    if(warn) setStatus(path, 'התמלול הצליח, אבל שלב Qwen נכשל: '+warn, 'err'); else setStatus(path, '✔ הסתיים', 'ok');
+    showResult(path, it, t.text, refined);
+  }
+  updateQueue();
+};
+
+function showResult(path, it, raw, refined){
+  const box = it.el.querySelector('.out');
+  const views = {raw}; if(refined) views.refined = refined;
+  const label = {raw:'תמלול גולמי', refined: $('mode').value==='summary' ? 'סיכום' : 'עיבוד Qwen'};
+  box.innerHTML = `<div class="row tabs"></div><textarea readonly></textarea>
+    <div class="row" style="margin-top:8px"><button data-a="copy">העתק</button><button data-a="save">שמור כקובץ…</button></div>`;
+  const ta = box.querySelector('textarea'), tabs = box.querySelector('.tabs');
+  let cur = refined ? 'refined' : 'raw';
+  const render = () => { ta.value = views[cur]; tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.k===cur)); };
+  Object.keys(views).forEach(k => { const b=document.createElement('button'); b.textContent=label[k]; b.dataset.k=k; b.onclick=()=>{cur=k;render();}; tabs.appendChild(b); });
+  box.querySelector('[data-a=copy]').onclick = () => { ta.select(); document.execCommand('copy'); };
+  box.querySelector('[data-a=save]').onclick = () => {
+    const base = path.split(/[\\/]/).pop().replace(/\.[^.]+$/,'');
+    api().save_text(base + (cur==='raw' ? '' : '-'+cur) + '.txt', ta.value);
+  };
+  render();
+}
+</script>
+</body>
+</html>
